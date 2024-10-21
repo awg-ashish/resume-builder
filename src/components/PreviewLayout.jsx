@@ -1,23 +1,19 @@
-import React, { useRef, useState, useEffect } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useStore } from "@tanstack/react-store";
 import { store } from "../store";
-import { toPng } from "html-to-image";
 import Basic from "../templates/Basic";
 import Modern from "../templates/Modern";
-
-
-const A4_WIDTH_PX = 794; // Approx width of A4 in pixels at 96 DPI (default web)
-const A4_HEIGHT_PX = 1123; // Approx height of A4 in pixels at 96 DPI
+import debounce from "lodash.debounce";
 
 const PreviewLayout = () => {
-  const [overlayVisible, setOverlayVisible] = useState(false); // Initially set to false
-  const [imageSrcs, setImageSrcs] = useState([]); // Store multiple page image sources
-  const [activePage, setActivePage] = useState(0); // Track the active page in overlay
-  const templateRef = useRef(null); // Reference for capturing the component
+  const [imageSrcs, setImageSrcs] = useState(() => {
+    const savedImages = localStorage.getItem("savedImages");
+    return savedImages ? JSON.parse(savedImages) : [];
+  });
+  const [isOverlayOpen, setIsOverlayOpen] = useState(false);
 
   const template = useStore(store, (state) => state.template) || "basic";
 
-  // Fetch data from store
   const basicInformation =
     useStore(store, (state) => state.basicInformation) || {};
   const workExperience = useStore(store, (state) => state.workExperience) || [];
@@ -27,7 +23,6 @@ const PreviewLayout = () => {
   const awards = useStore(store, (state) => state.awards) || [];
   const volunteering = useStore(store, (state) => state.volunteering) || [];
 
-  // Data to be passed to the template components
   const templateData = {
     basicInformation,
     workExperience,
@@ -38,76 +33,58 @@ const PreviewLayout = () => {
     volunteering,
   };
 
-  // Dynamically render template based on selected template type
+  const handleImagesGenerated = useCallback((images) => {
+    console.log("Images generated:", images);
+    if (images && images.length > 0) {
+      setImageSrcs(images);
+      localStorage.setItem("savedImages", JSON.stringify(images));
+    } else {
+      console.error("No images generated");
+    }
+  }, []);
+
+  const handleImageClick = () => {
+    setIsOverlayOpen(true);
+  };
+
+  const handleCloseOverlay = () => {
+    setIsOverlayOpen(false);
+  };
+
+  const regenerateImages = useCallback(
+    debounce(() => {
+      console.log("Regenerating images with data:", templateData);
+      setImageSrcs([]);
+      localStorage.removeItem("savedImages");
+      renderTemplate();
+    }, 500),
+    [templateData]
+  );
+
+  useEffect(() => {
+    if (imageSrcs.length === 0) {
+      regenerateImages();
+    }
+  }, [templateData, regenerateImages, imageSrcs.length]);
+
   const renderTemplate = () => {
     switch (template) {
       case "modern":
-        return <Modern data={templateData} />;
+        return (
+          <Modern
+            data={templateData}
+            onImagesGenerated={handleImagesGenerated}
+          />
+        );
       case "basic":
-        return <Basic data={templateData} />;
+        return (
+          <Basic
+            data={templateData}
+            onImagesGenerated={handleImagesGenerated}
+          />
+        );
       default:
         return null;
-    }
-  };
-
-  // Generate image from template whenever the data changes
-  useEffect(() => {
-    const generateImage = async () => {
-      if (templateRef.current) {
-        const pages = [];
-        const totalHeight = templateRef.current.scrollHeight;
-        const totalPages = Math.ceil(totalHeight / A4_HEIGHT_PX); // Calculate number of pages
-
-        // Loop through each page and capture content accordingly
-        for (let i = 0; i < totalPages; i++) {
-          // Adjust the scroll position to capture the next page
-          templateRef.current.scrollTop = i * A4_HEIGHT_PX; // Offset for each page
-          console.log(templateRef.current.scrollTop);
-
-          // Wait a moment for the scroll to settle before capturing the image
-          await new Promise((resolve) => setTimeout(resolve, 100));
-
-          // Capture the image for the current page
-          const dataUrl = await toPng(templateRef.current, {
-            width: A4_WIDTH_PX,
-            height: A4_HEIGHT_PX,
-            offsetY: i * A4_HEIGHT_PX, // Offset for each page
-            bgcolor: "white", // Set white background
-            pixelRatio: 2, // Higher resolution for the image
-            style: {
-              border: "1px solid black", // 1px border around the image
-            },
-          });
-
-          pages.push(dataUrl); // Add each page to the array
-        }
-
-        setImageSrcs(pages); // Save all the page images to state
-      }
-    };
-
-    generateImage(); // Call the generateImage function
-  }, [
-    basicInformation,
-    workExperience,
-    education,
-    skills,
-    summary,
-    awards,
-    volunteering,
-    template,
-  ]);
-  // Re-run on data change
-
-  // Handle overlay toggle
-  const handleOverlayToggle = () => {
-    setOverlayVisible(true); // Show overlay only when image is clicked
-  };
-
-  // Handle click outside overlay to close it
-  const handleOverlayClose = (e) => {
-    if (e.target === e.currentTarget) {
-      setOverlayVisible(false); // Close overlay when clicked outside
     }
   };
 
@@ -119,53 +96,51 @@ const PreviewLayout = () => {
         </div>
       </div>
 
-      <div
-        className="relative z-0 w-full h-[calc(100vh-32px)] overflow-y-auto hide-scrollbar"
-        ref={templateRef} // Reference to the template for image capture
-      >
+      <div className="relative z-0 w-full h-[calc(100vh-32px)] overflow-y-auto hide-scrollbar">
         {renderTemplate()}
       </div>
 
-      {imageSrcs.length > 0 &&
-        !overlayVisible && ( // Only show image if overlay is not visible
-          <div
-            className="relative z-0 w-full h-[calc(100vh-32px)] overflow-y-auto hide-scrollbar"
-            onClick={handleOverlayToggle} // Show overlay when image is clicked
-          >
-            {imageSrcs.map((imageSrc, index) => (
-              <img
-                key={index}
-                src={imageSrc}
-                alt={`Generated Page ${index + 1}`}
-                style={{
-                  aspectRatio: 1 / 1.414,
-                  cursor: "zoom-in",
-                  border: "1px solid black", // 1px border around the image
-                  background: "white", // White background
-                  marginBottom: "10px", // Space between pages
-                }}
-              />
-            ))}
-          </div>
-        )}
+      {imageSrcs.length > 0 && (
+        <div className="relative z-0 w-full h-[calc(100vh-32px)] overflow-y-auto hide-scrollbar">
+          {imageSrcs.map((imageSrc, index) => (
+            <img
+              key={index}
+              src={imageSrc}
+              alt={`Generated Page ${index + 1}`}
+              style={{
+                aspectRatio: 1 / 1.414,
+                cursor: "zoom-in",
+                border: "1px solid black",
+                background: "white",
+                marginBottom: "10px",
+              }}
+              onClick={handleImageClick}
+            />
+          ))}
+        </div>
+      )}
 
-      {overlayVisible && imageSrcs.length > 0 && (
+      {isOverlayOpen && (
         <div
-          className="fixed inset-0 z-20 bg-black bg-opacity-80 flex justify-center items-center"
-          onClick={handleOverlayClose} // Close the overlay when clicked outside
+          className="fixed top-0 left-0 w-full h-full bg-white flex items-center justify-center z-50"
+          onClick={handleCloseOverlay}
         >
           <div
-            className="h-auto w-[60vw] overflow-y-scroll bg-white" // Allow scrolling of content
+            className="flex flex-col items-center overflow-auto"
+            style={{ maxHeight: "90vh", width: "70%" }}
+            onClick={(e) => e.stopPropagation()}
           >
             {imageSrcs.map((imageSrc, index) => (
               <img
                 key={index}
                 src={imageSrc}
-                alt={`Overlay Page ${index + 1}`}
+                alt={`Zoomed Page ${index + 1}`}
+                className="my-2"
                 style={{
-                  width: "100%", // Allow image to fit the width of the screen
-                  marginBottom: "15px", // Space between pages
-                  cursor: "grab",
+                  width: "100%",
+                  height: "auto",
+                  aspectRatio: "1 / 1.414",
+                  cursor: "zoom-out",
                 }}
               />
             ))}

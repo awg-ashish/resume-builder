@@ -3,7 +3,7 @@ import { useStore } from "@tanstack/react-store";
 import { store } from "../store";
 import WorkExperienceItem from "./WorkExperienceItem";
 import Button from "./ui/Button";
-import { Reorder, AnimatePresence } from "framer-motion";
+import { Reorder } from "framer-motion";
 
 const WorkExperience = () => {
   const workExperience = useStore(store, (state) => state.workExperience) || [];
@@ -29,6 +29,7 @@ const WorkExperience = () => {
     const newItems = [
       ...workExperience,
       {
+        id: `${Date.now()}`, // Add unique id for each item
         company: "",
         jobTitle: "",
         startDate: "",
@@ -48,24 +49,14 @@ const WorkExperience = () => {
         values={workExperience}
         onReorder={setWorkExperience} // Pass the reordered array to the state setter
       >
-        <AnimatePresence>
-          {workExperience.map((item, index) => (
-            <Reorder.Item
-              key={item.id || index} // Ensure unique key, preferably use a unique identifier like `id`
-              value={item}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              layout
-            >
-              <WorkExperienceItem
-                key={index}
-                item={{ ...item, onChange: handleChange }}
-                index={index}
-              />
-            </Reorder.Item>
-          ))}
-        </AnimatePresence>
+        {workExperience.map((item, index) => (
+          <WorkExperienceItem
+            key={`${item.id}`}
+            item={item}
+            index={index}
+            handleChange={handleChange}
+          />
+        ))}
       </Reorder.Group>
       <Button addItem={addItem}>Add Work Experience</Button>
     </div>

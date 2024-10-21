@@ -1,9 +1,19 @@
+import { useMotionValue, Reorder } from "framer-motion";
 import React from "react";
 import { MdDragIndicator } from "react-icons/md";
+import { useRaisedShadow } from "../utils/useRaisedShadow"; // Custom hook for shadow
 
-const WorkExperienceItem = React.memo(({ item, index }) => {
+const WorkExperienceItem = ({ item, index, handleChange }) => {
+  const y = useMotionValue(0);
+  const boxShadow = useRaisedShadow(y); // Use the custom hook for dynamic shadow
+
   return (
-    <div className="px-2 py-4 mb-4 flex items-start justify-center bg-slate-50 rounded-xl">
+    <Reorder.Item
+      value={item} // This needs to match with the `value` prop in Reorder.Group
+      id={item.id}
+      style={{ boxShadow, y }}
+      className="px-2 py-4 mb-4 flex items-start justify-center bg-slate-50 rounded-xl"
+    >
       <div className="text-2xl text-slate-400 cursor-grabbing">
         <MdDragIndicator />
       </div>
@@ -13,7 +23,7 @@ const WorkExperienceItem = React.memo(({ item, index }) => {
           name="company"
           placeholder="Company Name"
           value={item.company}
-          onChange={(e) => item.onChange(index, e)}
+          onChange={(e) => handleChange(index, e)}
           className="w-full p-2 mb-2 border rounded-lg"
         />
         <input
@@ -21,7 +31,7 @@ const WorkExperienceItem = React.memo(({ item, index }) => {
           name="jobTitle"
           placeholder="Job Title"
           value={item.jobTitle}
-          onChange={(e) => item.onChange(index, e)}
+          onChange={(e) => handleChange(index, e)}
           className="w-full p-2 mb-2 border rounded-lg"
         />
         <input
@@ -29,7 +39,7 @@ const WorkExperienceItem = React.memo(({ item, index }) => {
           name="startDate"
           placeholder="Start Date"
           value={item.startDate}
-          onChange={(e) => item.onChange(index, e)}
+          onChange={(e) => handleChange(index, e)}
           className="w-full p-2 mb-2 border rounded-lg"
         />
         <input
@@ -37,14 +47,14 @@ const WorkExperienceItem = React.memo(({ item, index }) => {
           name="endDate"
           placeholder="End Date"
           value={item.endDate}
-          onChange={(e) => item.onChange(index, e)}
+          onChange={(e) => handleChange(index, e)}
           className="w-full p-2 mb-2 border rounded-lg"
         />
         <textarea
           name="description"
           placeholder="Job Description"
           value={item.description}
-          onChange={(e) => item.onChange(index, e)}
+          onChange={(e) => handleChange(index, e)}
           className="w-full p-2 mb-2 border rounded-lg"
         />
         <label>
@@ -52,13 +62,13 @@ const WorkExperienceItem = React.memo(({ item, index }) => {
             type="checkbox"
             name="current"
             checked={item.current}
-            onChange={(e) => item.onChange(index, e)}
+            onChange={(e) => handleChange(index, e)}
           />
           Currently working here
         </label>
       </div>
-    </div>
+    </Reorder.Item>
   );
-});
+};
 
 export default WorkExperienceItem;
